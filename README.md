@@ -25,34 +25,6 @@ A modern web application for tracking scores and managing games across various s
 - MongoDB
 - JWT Authentication
 
-## Getting Started
-
-### Prerequisites
-- Node.js (v14 or higher)
-- npm or yarn
-
-### Installation
-
-1. Clone the repository
-```bash
-git clone https://github.com/yourusername/score-keeper.git
-cd score-keeper
-```
-
-2. Install dependencies
-```bash
-# Install client dependencies
-cd client
-npm install
-```
-
-3. Start the development server
-```bash
-npm start
-```
-
-4. Open your browser and navigate to `http://localhost:3000`
-
 ## Project Structure
 
 ```
