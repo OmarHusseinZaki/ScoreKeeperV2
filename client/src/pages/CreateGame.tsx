@@ -230,8 +230,8 @@ const CreateGame: React.FC = () => {
       console.log('Sending request with token:', currentToken);
       
       // Create a new table (game) with the authorization config
-      // Use the full URL to avoid any path issues
-      const response = await axios.post('http://localhost:5000/api/tables', gameData, config);
+      // Use axios default baseURL configured in AuthContext
+      const response = await axios.post('/tables', gameData, config);
 
       // Check if the response contains mock data flag
       if (response.data._isMock) {

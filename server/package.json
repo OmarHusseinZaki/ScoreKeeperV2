@@ -3,10 +3,15 @@
   "version": "1.0.0",
   "description": "Backend for Score Keeper application",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "scripts": {
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "build": "tsc",
+    "postinstall": "npm run build",
+    "deploy": "npm run build && npm start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

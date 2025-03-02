@@ -1,14 +1,103 @@
 # Score Keeper Application
 
-A modern web application for tracking scores and managing games across various sports and activities.
+A full-stack application for tracking scores in various games and sports.
+
+## Project Structure
+
+- `client/` - React frontend
+- `server/` - Node.js/Express backend
+
+## Local Development
+
+### Backend
+
+1. Navigate to the server directory:
+   ```
+   cd server
+   ```
+
+2. Install dependencies:
+   ```
+   npm install
+   ```
+
+3. Create a `.env` file based on `.env.example`:
+   ```
+   cp .env.example .env
+   ```
+
+4. Start the development server:
+   ```
+   npm run dev
+   ```
+
+### Frontend
+
+1. Navigate to the client directory:
+   ```
+   cd client
+   ```
+
+2. Install dependencies:
+   ```
+   npm install
+   ```
+
+3. Start the development server:
+   ```
+   npm start
+   ```
+
+## Deployment
+
+### Backend Deployment (Render)
+
+1. Create a new Web Service on Render
+2. Connect your GitHub repository
+3. Configure the service:
+   - Name: score-keeper-server
+   - Environment: Node
+   - Root Directory: server
+   - Build Command: `npm install && npm run build`
+   - Start Command: `npm start`
+   - Add the following environment variables:
+     - PORT: 10000 (Render will override this with its own port)
+     - NODE_ENV: production
+     - MONGO_URI: Your MongoDB connection string
+     - JWT_SECRET: Your secure JWT secret
+     - JWT_EXPIRES_IN: 90d
+     - ALLOWED_ORIGINS: Your frontend URL(s), comma-separated
+
+### Frontend Deployment (Vercel)
+
+1. Create a new project on Vercel
+2. Connect your GitHub repository
+3. Configure the project:
+   - Framework Preset: Create React App
+   - Root Directory: client
+   - Build Command: npm run build
+   - Output Directory: build
+4. Add environment variables:
+   - REACT_APP_API_URL: Your backend URL (e.g., https://score-keeper-server.onrender.com/api)
+
+## Environment Variables
+
+### Backend
+
+See `.env.example` in the server directory for required environment variables.
+
+### Frontend
+
+- `REACT_APP_API_URL`: URL of the backend API
+- `REACT_APP_ENV`: Environment (development or production)
 
 ## Features
 
-- **User Authentication**: Register, login, and manage your profile
-- **Game Management**: Create, join, and manage games
-- **Real-time Score Tracking**: Keep track of scores during games
-- **Game History**: View past games and statistics
-- **Responsive Design**: Works on desktop and mobile devices
+- User authentication
+- Create and join games
+- Track scores
+- View game history
+- Player profiles
 
 ## Tech Stack
 
