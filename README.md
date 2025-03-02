@@ -60,7 +60,7 @@ A full-stack application for tracking scores in various games and sports.
    - Name: score-keeper-server
    - Environment: Node
    - Root Directory: server
-   - Build Command: `npm install && npm run build`
+   - Build Command: `npm install --production=false && npm run build`
    - Start Command: `npm start`
    - Add the following environment variables:
      - `PORT`: 10000 (Render will override this with its own port)
@@ -174,6 +174,7 @@ score-keeper/
 - If your application fails to build, check the build logs for errors
 - Ensure all environment variables are correctly set
 - Verify that your MongoDB Atlas IP access list includes Render's IPs or is set to allow access from anywhere (0.0.0.0/0)
+- If you encounter TypeScript compilation errors about missing type definitions, make sure all `@types/*` packages are in the `dependencies` section of your `package.json`, not just in `devDependencies`, as Render may not install dev dependencies during the build process
 
 ### Vercel
 - If your frontend fails to connect to the backend, check that REACT_APP_API_URL is correctly set
