@@ -27,7 +27,7 @@ export const addScore = async (req: Request, res: Response) => {
     }
 
     // Check if table belongs to the user
-    if (table.user.toString() !== req.user._id.toString()) {
+    if (table.owner.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: 'Not authorized to add score to this table' });
     }
 
@@ -59,7 +59,7 @@ export const getScoresByTable = async (req: Request, res: Response) => {
     }
 
     // Check if table belongs to the user
-    if (table.user.toString() !== req.user._id.toString()) {
+    if (table.owner.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: 'Not authorized to view scores for this table' });
     }
 
@@ -127,7 +127,7 @@ export const getTotalScore = async (req: Request, res: Response) => {
     }
 
     // Check if table belongs to the user
-    if (table.user.toString() !== req.user._id.toString()) {
+    if (table.owner.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: 'Not authorized to view scores for this table' });
     }
 
@@ -173,7 +173,7 @@ export const updateScore = async (req: Request, res: Response) => {
     }
 
     // Check if table belongs to the user
-    if (table.user.toString() !== req.user._id.toString()) {
+    if (table.owner.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: 'Not authorized to update score for this table' });
     }
 
@@ -216,7 +216,7 @@ export const deleteScore = async (req: Request, res: Response) => {
     }
 
     // Check if table belongs to the user
-    if (table.user.toString() !== req.user._id.toString()) {
+    if (table.owner.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: 'Not authorized to delete score for this table' });
     }
 
