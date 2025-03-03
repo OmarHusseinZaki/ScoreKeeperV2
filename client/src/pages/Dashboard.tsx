@@ -1,116 +1,207 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
-// Define the Table/Game interface
 interface Game {
   _id: string;
   name: string;
-  players: any[];
-  metadata?: {
-    type?: string;
-    date?: string;
-    location?: string;
-    maxPlayers?: number;
-    description?: string;
+  gameId: string;
+  owner: {
+    _id: string;
+    username: string;
   };
+  players: {
+    name: string;
+    score: number;
+  }[];
+  isActive: boolean;
   createdAt: string;
 }
 
-const DashboardContainer = styled.div`
+const Dashboard = () => {
+  const [games, setGames] = useState<Game[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [gameId, setGameId] = useState('');
+  const [joinError, setJoinError] = useState('');
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchGames = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/tables`);
+        setGames(response.data);
+        setLoading(false);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to fetch games');
+        setLoading(false);
+      }
+    };
+
+    fetchGames();
+  }, []);
+
+  const handleJoinGame = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setJoinError('');
+
+    try {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/tables/join/${gameId}`);
+      navigate(`/games/${response.data._id}`);
+    } catch (err: any) {
+      setJoinError(err.response?.data?.message || 'Failed to join game');
+    }
+  };
+
+  if (loading) return <Container>Loading...</Container>;
+  if (error) return <Container>Error: {error}</Container>;
+
+  return (
+    <Container>
+      <Header>
+        <h1>Welcome, {user?.username}!</h1>
+        <CreateGameButton to="/create-game">Create New Game</CreateGameButton>
+      </Header>
+
+      <JoinGameSection>
+        <h2>Join a Game</h2>
+        <JoinGameForm onSubmit={handleJoinGame}>
+          <input
+            type="text"
+            value={gameId}
+            onChange={(e) => setGameId(e.target.value)}
+            placeholder="Enter Game ID"
+            required
+          />
+          <button type="submit">Join Game</button>
+        </JoinGameForm>
+        {joinError && <ErrorMessage>{joinError}</ErrorMessage>}
+      </JoinGameSection>
+
+      <GamesSection>
+        <h2>Your Games</h2>
+        {games.length === 0 ? (
+          <EmptyState>No games found. Create a new game or join an existing one!</EmptyState>
+        ) : (
+          <GamesList>
+            {games.map((game) => (
+              <GameCard key={game._id}>
+                <GameInfo>
+                  <h3>{game.name}</h3>
+                  <p>Game ID: {game.gameId}</p>
+                  <p>Created by: {game.owner.username}</p>
+                  <p>Players: {game.players.length}</p>
+                  <p>Status: {game.isActive ? 'Active' : 'Inactive'}</p>
+                </GameInfo>
+                <ViewButton onClick={() => navigate(`/games/${game._id}`)}>
+                  View Game
+                </ViewButton>
+              </GameCard>
+            ))}
+          </GamesList>
+        )}
+      </GamesSection>
+    </Container>
+  );
+};
+
+const Container = styled.div`
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
 `;
 
-const WelcomeSection = styled.div`
-  margin-bottom: 2rem;
-`;
-
-const Title = styled.h1`
-  color: #333;
-  margin-bottom: 0.5rem;
-`;
-
-const Subtitle = styled.p`
-  color: #666;
-  font-size: 1.1rem;
-`;
-
-const ActionButtons = styled.div`
+const Header = styled.div`
   display: flex;
-  gap: 1rem;
-  margin: 2rem 0;
-`;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
 
-const Button = styled.button`
-  padding: 0.8rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  color: white;
-  text-decoration: none;
-  display: inline-block;
-  text-align: center;
-`;
-
-const StyledLink = styled(Link)`
-  text-decoration: none;
-  color: inherit;
+  h1 {
+    margin: 0;
+    color: #2c3e50;
+  }
 `;
 
 const CreateGameButton = styled(Link)`
-  padding: 0.8rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.3s;
+  background-color: #3498db;
   color: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: 5px;
   text-decoration: none;
-  display: inline-block;
-  text-align: center;
-  background-color: #27ae60;
-  
+  font-weight: bold;
+  transition: background-color 0.2s;
+
   &:hover {
-    background-color: #219653;
+    background-color: #2980b9;
   }
 `;
 
-const JoinGameButton = styled(Link)`
-  padding: 0.8rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  color: white;
-  text-decoration: none;
-  display: inline-block;
-  text-align: center;
-  background-color: #4a90e2;
-  
-  &:hover {
-    background-color: #357abD;
+const JoinGameSection = styled.section`
+  background-color: #f8f9fa;
+  padding: 2rem;
+  border-radius: 10px;
+  margin-bottom: 2rem;
+
+  h2 {
+    margin: 0 0 1rem 0;
+    color: #2c3e50;
   }
 `;
 
-const GamesSection = styled.div`
-  margin-top: 2rem;
+const JoinGameForm = styled.form`
+  display: flex;
+  gap: 1rem;
+
+  input {
+    flex: 1;
+    padding: 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+
+    &:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+  }
+
+  button {
+    background-color: #2ecc71;
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: #27ae60;
+    }
+  }
 `;
 
-const SectionTitle = styled.h2`
-  color: #333;
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #eee;
+const ErrorMessage = styled.p`
+  color: #e74c3c;
+  margin: 0.5rem 0 0 0;
+`;
+
+const EmptyState = styled.p`
+  text-align: center;
+  color: #7f8c8d;
+  font-size: 1.1rem;
+  margin: 2rem 0;
+`;
+
+const GamesSection = styled.section`
+  h2 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+  }
 `;
 
 const GamesList = styled.div`
@@ -119,292 +210,42 @@ const GamesList = styled.div`
   gap: 1.5rem;
 `;
 
-const GameCard = styled(Link)`
+const GameCard = styled.div`
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
   padding: 1.5rem;
-  transition: transform 0.3s, box-shadow 0.3s;
-  text-decoration: none;
-  color: inherit;
-  
-  &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-  }
-`;
-
-const GameTitle = styled.h3`
-  color: #333;
-  margin-bottom: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 `;
 
 const GameInfo = styled.div`
-  color: #666;
-  margin-bottom: 1rem;
+  h3 {
+    margin: 0 0 1rem 0;
+    color: #2c3e50;
+  }
+
+  p {
+    margin: 0.5rem 0;
+    color: #7f8c8d;
+  }
 `;
 
-const GameDate = styled.p`
-  margin-bottom: 0.3rem;
-`;
-
-const GamePlayers = styled.p`
-  margin-bottom: 0.3rem;
-`;
-
-const ViewButton = styled(Link)`
-  display: inline-block;
-  background-color: #4a90e2;
+const ViewButton = styled.button`
+  background-color: #3498db;
   color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  text-decoration: none;
-  font-weight: 500;
-  transition: background-color 0.3s;
-  
+  border: none;
+  padding: 0.8rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 1rem;
+  transition: background-color 0.2s;
+
   &:hover {
-    background-color: #357abD;
+    background-color: #2980b9;
   }
 `;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 3rem;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-`;
-
-const EmptyStateText = styled.p`
-  color: #666;
-  font-size: 1.1rem;
-  margin-bottom: 1.5rem;
-`;
-
-const LoadingMessage = styled.p`
-  color: #666;
-  font-size: 1.1rem;
-  margin-bottom: 1.5rem;
-`;
-
-const ErrorMessage = styled.p`
-  color: #ff3b3b;
-  font-size: 1.1rem;
-  margin-bottom: 1.5rem;
-`;
-
-const GameGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
-`;
-
-const GameType = styled.p`
-  margin-bottom: 0.3rem;
-`;
-
-// Mock data for games when API is unavailable
-const mockGames: Game[] = [
-  {
-    _id: 'mock1',
-    name: 'Basketball Game (basketball)',
-    players: [],
-    metadata: {
-      type: 'basketball',
-      date: '2023-06-15',
-      location: 'City Park',
-      maxPlayers: 10,
-      description: 'Weekly basketball game at the city park'
-    },
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: 'mock2',
-    name: 'Soccer Match (soccer)',
-    players: [],
-    metadata: {
-      type: 'soccer',
-      date: '2023-06-20',
-      location: 'Community Field',
-      maxPlayers: 22,
-      description: 'Friendly soccer match'
-    },
-    createdAt: new Date().toISOString()
-  }
-];
-
-const Dashboard: React.FC = () => {
-  const { user, token } = useAuth();
-  const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isMockData, setIsMockData] = useState(false);
-
-  // Fetch games (tables) from the API
-  useEffect(() => {
-    const fetchGames = async () => {
-      setLoading(true);
-      setError(null);
-      
-      // Check if user is authenticated
-      if (!user || !token) {
-        console.log('User not authenticated, using mock data');
-        setGames(mockGames);
-        setIsMockData(true);
-        setError('Please log in to access your games. Using sample data instead.');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Set the authorization header with the token
-        if (token) {
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        }
-
-        console.log('Fetching games with token:', token);
-        
-        // Fetch tables from the API
-        const response = await axios.get('/tables');
-        
-        console.log('API response:', response.data);
-        
-        // Check if the response contains mock data flag
-        if (response.data && response.data._isMock) {
-          console.log('Received mock data from server');
-          setIsMockData(true);
-          setGames(response.data.data || mockGames);
-          setError(response.data.message || 'Using sample data from server.');
-        } else if (Array.isArray(response.data)) {
-          // Regular array response
-          console.log('Received array data from server:', response.data.length, 'games');
-          setGames(response.data);
-          setIsMockData(false);
-        } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
-          // Response with data property
-          console.log('Received data property from server:', response.data.data.length, 'games');
-          setGames(response.data.data);
-          setIsMockData(false);
-        } else {
-          // Unexpected response format
-          console.error('Unexpected response format:', response.data);
-          setGames(mockGames);
-          setIsMockData(true);
-          setError('Received unexpected data format. Using sample data instead.');
-        }
-      } catch (error: any) {
-        console.error('Error fetching games:', error);
-        
-        // Check for 401 Unauthorized error
-        if (error.response && error.response.status === 401) {
-          console.log('Authentication error. Token may be invalid.');
-          // Clear the invalid token
-          localStorage.removeItem('authToken');
-          setError('Your session has expired. Please log in again.');
-          // Reload the page to trigger re-authentication
-          window.location.reload();
-        } else {
-          setError('Could not connect to the server. Using sample data instead.');
-          setGames(mockGames);
-          setIsMockData(true);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchGames();
-  }, [user, token]);
-
-  // Extract game title from the name (which might include game type)
-  const getGameTitle = (name: string) => {
-    // If name contains game type in parentheses, extract just the title
-    const match = name.match(/(.*?)\s*\(.*\)/);
-    return match ? match[1] : name;
-  };
-  
-  // Extract game type from metadata or from name
-  const getGameType = (game: Game) => {
-    if (game.metadata?.type) {
-      return game.metadata.type;
-    }
-    
-    // Try to extract from name if in format "Title (Type)"
-    const match = game.name.match(/.*\((.*?)\)/);
-    return match ? match[1] : 'Unknown';
-  };
-  
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'No date';
-    
-    // If it's a metadata date field
-    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return new Date(dateString).toLocaleDateString();
-    }
-    
-    // If it's a createdAt timestamp
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  return (
-    <DashboardContainer>
-      <WelcomeSection>
-        <Title>Welcome, {user?.username || 'User'}!</Title>
-        <Subtitle>Manage your games and scores from your dashboard</Subtitle>
-      </WelcomeSection>
-      
-      <ActionButtons>
-        <CreateGameButton to="/create-game">Create New Game</CreateGameButton>
-        <JoinGameButton to="/join-game">Join a Game</JoinGameButton>
-      </ActionButtons>
-      
-      <SectionTitle>Your Games</SectionTitle>
-      
-      {loading ? (
-        <LoadingMessage>Loading your games...</LoadingMessage>
-      ) : error ? (
-        <>
-          <ErrorMessage>{error}</ErrorMessage>
-          {isMockData && (
-            <LoadingMessage>
-              Showing sample data. Games created here will not be saved permanently.
-            </LoadingMessage>
-          )}
-        </>
-      ) : games.length === 0 ? (
-        <EmptyState>
-          <EmptyStateText>You haven't created any games yet.</EmptyStateText>
-          <CreateGameButton to="/create-game">Create Your First Game</CreateGameButton>
-        </EmptyState>
-      ) : (
-        <>
-          {isMockData && (
-            <LoadingMessage>
-              Showing sample data. Games created here will not be saved permanently.
-            </LoadingMessage>
-          )}
-          <GameGrid>
-            {games.map((game) => (
-              <GameCard key={game._id} to={`/games/${game._id}`}>
-                <GameTitle>{getGameTitle(game.name)}</GameTitle>
-                <GameInfo>
-                  <GameType>{getGameType(game)}</GameType>
-                  <GameDate>
-                    {game.metadata?.date 
-                      ? formatDate(game.metadata.date) 
-                      : formatDate(game.createdAt)}
-                  </GameDate>
-                  <GamePlayers>
-                    {game.players.length} / {game.metadata?.maxPlayers || '∞'} players
-                  </GamePlayers>
-                </GameInfo>
-              </GameCard>
-            ))}
-          </GameGrid>
-        </>
-      )}
-    </DashboardContainer>
-  );
-};
 
 export default Dashboard; 

@@ -1,5 +1,5 @@
-import React, { useState, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, FormEvent, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuth } from '../context/AuthContext';
 
@@ -99,10 +99,16 @@ const Register: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   
   const { register, error, loading, clearError } = useAuth();
+  const navigate = useNavigate();
   
+  // Clear any existing errors when component mounts
+  useEffect(() => {
+    clearError();
+    setFormError(null);
+  }, [clearError]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    clearError();
     setFormError(null);
     
     // Validate form
@@ -121,7 +127,14 @@ const Register: React.FC = () => {
       return;
     }
     
-    await register(username, email, password);
+    try {
+      await register(username, email, password);
+      // Navigate to dashboard after successful registration
+      navigate('/dashboard');
+    } catch (err) {
+      // Error is already handled by the AuthContext
+      console.error('Registration failed:', err);
+    }
   };
   
   return (
@@ -132,12 +145,14 @@ const Register: React.FC = () => {
         <ErrorMessage>{formError || error}</ErrorMessage>
       )}
       
-      <Form onSubmit={handleSubmit}>
+      <Form onSubmit={handleSubmit} noValidate>
         <FormGroup>
           <Label htmlFor="username">Username</Label>
           <Input
             type="text"
             id="username"
+            name="username"
+            autoComplete="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
@@ -149,6 +164,8 @@ const Register: React.FC = () => {
           <Input
             type="email"
             id="email"
+            name="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -160,6 +177,8 @@ const Register: React.FC = () => {
           <Input
             type="password"
             id="password"
+            name="password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -171,6 +190,8 @@ const Register: React.FC = () => {
           <Input
             type="password"
             id="confirmPassword"
+            name="confirmPassword"
+            autoComplete="new-password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required

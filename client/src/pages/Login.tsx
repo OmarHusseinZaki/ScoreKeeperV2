@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuth } from '../context/AuthContext';
@@ -97,15 +97,26 @@ const Login: React.FC = () => {
   const { login, error, loading, clearError } = useAuth();
   const navigate = useNavigate();
   
+  // Clear any existing errors when component mounts
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    clearError();
     
     if (!email || !password) {
       return;
     }
     
-    await login(email, password);
+    try {
+      await login(email, password);
+      // Navigate to dashboard after successful login
+      navigate('/dashboard');
+    } catch (err) {
+      // Error is already handled by the AuthContext
+      console.error('Login failed:', err);
+    }
   };
   
   return (
@@ -114,12 +125,14 @@ const Login: React.FC = () => {
       
       {error && <ErrorMessage>{error}</ErrorMessage>}
       
-      <Form onSubmit={handleSubmit}>
+      <Form onSubmit={handleSubmit} noValidate>
         <FormGroup>
           <Label htmlFor="email">Email</Label>
           <Input
             type="email"
             id="email"
+            name="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -131,6 +144,8 @@ const Login: React.FC = () => {
           <Input
             type="password"
             id="password"
+            name="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

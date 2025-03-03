@@ -51,42 +51,17 @@ const handleUserId = (userId: string) => {
   return userId;
 };
 
-// @desc    Create a new table
+// @desc    Create a new game
 // @route   POST /api/tables
 // @access  Private
 export const createTable = async (req: Request, res: Response) => {
   try {
-    // Check if MongoDB is connected
-    if (!isMongoConnected()) {
-      console.log('MongoDB not connected. Returning mock response for createTable');
-      const { name, metadata } = req.body;
-      
-      // Create a mock table with the provided data
-      const mockTable = {
-        _id: `mock-table-${Date.now()}`,
-        name,
-        user: req.user._id,
-        players: [],
-        metadata,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      return res.status(201).json({
-        ...mockTable,
-        _isMock: true,
-        message: 'MongoDB is not available. This is mock data and will not be persisted.'
-      });
-    }
-
     const { name, metadata } = req.body;
     
-    // Handle the mock user ID
-    const userId = handleUserId(req.user._id);
-
     const table = await Table.create({
       name,
-      user: userId,
+      owner: req.user._id,
+      participants: [req.user._id], // Add creator as first participant
       players: [],
       metadata
     });
@@ -97,66 +72,73 @@ export const createTable = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Get all tables for a user
+// @desc    Join a game by gameId
+// @route   POST /api/tables/join/:gameId
+// @access  Private
+export const joinTable = async (req: Request, res: Response) => {
+  try {
+    const table = await Table.findOne({ gameId: req.params.gameId });
+
+    if (!table) {
+      return res.status(404).json({ message: 'Game not found' });
+    }
+
+    if (!table.isActive) {
+      return res.status(400).json({ message: 'This game is no longer active' });
+    }
+
+    // Check if user is already a participant
+    if (table.participants.some(p => p.toString() === req.user._id.toString())) {
+      return res.status(400).json({ message: 'You are already in this game' });
+    }
+
+    // Add user to participants
+    table.participants.push(req.user._id);
+    await table.save();
+
+    res.json(table);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get all tables for a user (both owned and participating)
 // @route   GET /api/tables
 // @access  Private
 export const getTables = async (req: Request, res: Response) => {
   try {
-    // Check if MongoDB is connected
-    if (!isMongoConnected()) {
-      console.log('MongoDB not connected. Returning mock tables');
-      return res.json({
-        data: mockTables,
-        _isMock: true,
-        message: 'MongoDB is not available. This is mock data.'
-      });
-    }
-
-    // Handle the mock user ID
-    const userId = handleUserId(req.user._id);
+    const tables = await Table.find({
+      $or: [
+        { owner: req.user._id },
+        { participants: req.user._id }
+      ]
+    }).populate('owner', 'username');
     
-    console.log(`Fetching tables for user ID: ${userId}`);
-    const tables = await Table.find({ user: userId }).populate('players');
     res.json(tables);
   } catch (error: any) {
-    console.error('Error fetching tables:', error);
-    // Fallback to mock data on error
-    res.json({
-      data: mockTables,
-      _isMock: true,
-      message: 'Error connecting to database. This is mock data.'
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get a table by ID
+// @desc    Get a table by ID or gameId
 // @route   GET /api/tables/:id
 // @access  Private
 export const getTableById = async (req: Request, res: Response) => {
   try {
-    // Check if MongoDB is connected
-    if (!isMongoConnected()) {
-      console.log('MongoDB not connected. Returning mock table for ID:', req.params.id);
-      const mockTable = mockTables.find(t => t._id === req.params.id) || mockTables[0];
-      return res.json({
-        ...mockTable,
-        _isMock: true,
-        message: 'MongoDB is not available. This is mock data.'
-      });
-    }
-
-    const table = await Table.findById(req.params.id).populate('players');
+    const table = await Table.findOne({
+      $or: [
+        { _id: req.params.id },
+        { gameId: req.params.id }
+      ]
+    }).populate('owner participants', 'username email');
 
     if (!table) {
-      return res.status(404).json({ message: 'Table not found' });
+      return res.status(404).json({ message: 'Game not found' });
     }
 
-    // Handle the mock user ID for comparison
-    const userId = handleUserId(req.user._id);
-    
-    // Check if the table belongs to the user
-    if (table.user.toString() !== userId.toString()) {
-      return res.status(401).json({ message: 'Not authorized to access this table' });
+    // Check if user is a participant
+    if (!table.participants.some(p => p._id.toString() === req.user._id.toString())) {
+      return res.status(401).json({ message: 'Not authorized to access this game' });
     }
 
     res.json(table);
@@ -179,7 +161,7 @@ export const updateTable = async (req: Request, res: Response) => {
     }
 
     // Check if the table belongs to the user
-    if (table.user.toString() !== req.user._id.toString()) {
+    if (table.owner.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: 'Not authorized to update this table' });
     }
 
@@ -204,7 +186,7 @@ export const deleteTable = async (req: Request, res: Response) => {
     }
 
     // Check if the table belongs to the user
-    if (table.user.toString() !== req.user._id.toString()) {
+    if (table.owner.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: 'Not authorized to delete this table' });
     }
 
@@ -215,30 +197,64 @@ export const deleteTable = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Add a player to a table
+// @desc    Add a player to a game
 // @route   POST /api/tables/:id/players
 // @access  Private
 export const addPlayerToTable = async (req: Request, res: Response) => {
   try {
-    const { playerId } = req.body;
+    const { name } = req.body;
     
     const table = await Table.findById(req.params.id);
 
     if (!table) {
-      return res.status(404).json({ message: 'Table not found' });
+      return res.status(404).json({ message: 'Game not found' });
     }
 
-    // Check if the table belongs to the user
-    if (table.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({ message: 'Not authorized to update this table' });
+    // Check if user is a participant
+    if (!table.participants.some(p => p.toString() === req.user._id.toString())) {
+      return res.status(401).json({ message: 'Not authorized to update this game' });
     }
 
-    // Check if player is already in the table
-    if (table.players.includes(playerId)) {
-      return res.status(400).json({ message: 'Player already in table' });
+    // Add new player
+    table.players.push({
+      name,
+      score: 0
+    });
+    
+    const updatedTable = await table.save();
+    res.json(updatedTable);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update player score
+// @route   PUT /api/tables/:id/players/:playerIndex/score
+// @access  Private
+export const updatePlayerScore = async (req: Request, res: Response) => {
+  try {
+    const { score } = req.body;
+    const { id, playerIndex } = req.params;
+    const playerIdx = parseInt(playerIndex);
+
+    const table = await Table.findById(id);
+
+    if (!table) {
+      return res.status(404).json({ message: 'Game not found' });
     }
 
-    table.players.push(playerId);
+    // Check if user is a participant
+    if (!table.participants.some(p => p.toString() === req.user._id.toString())) {
+      return res.status(401).json({ message: 'Not authorized to update this game' });
+    }
+
+    // Check if player exists
+    if (!table.players[playerIdx]) {
+      return res.status(404).json({ message: 'Player not found' });
+    }
+
+    // Update player score
+    table.players[playerIdx].score = score;
     const updatedTable = await table.save();
     
     res.json(updatedTable);
@@ -247,28 +263,29 @@ export const addPlayerToTable = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Remove a player from a table
-// @route   DELETE /api/tables/:id/players/:playerId
+// @desc    Remove a player from a game
+// @route   DELETE /api/tables/:id/players/:playerIndex
 // @access  Private
 export const removePlayerFromTable = async (req: Request, res: Response) => {
   try {
-    const table = await Table.findById(req.params.id);
+    const { id, playerIndex } = req.params;
+    const playerIdx = parseInt(playerIndex);
+    
+    const table = await Table.findById(id);
 
     if (!table) {
-      return res.status(404).json({ message: 'Table not found' });
+      return res.status(404).json({ message: 'Game not found' });
     }
 
-    // Check if the table belongs to the user
-    if (table.user.toString() !== req.user._id.toString()) {
-      return res.status(401).json({ message: 'Not authorized to update this table' });
+    // Check if user is a participant
+    if (!table.participants.some(p => p.toString() === req.user._id.toString())) {
+      return res.status(401).json({ message: 'Not authorized to update this game' });
     }
 
-    // Remove player from table
-    table.players = table.players.filter(
-      (player) => player.toString() !== req.params.playerId
-    );
-    
+    // Remove player
+    table.players.splice(playerIdx, 1);
     const updatedTable = await table.save();
+    
     res.json(updatedTable);
   } catch (error: any) {
     res.status(500).json({ message: error.message });

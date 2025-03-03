@@ -19,4 +19,9 @@ router.post('/login', loginUser);
 // @access  Private
 router.get('/profile', protect, getUserProfile);
 
+// @route   GET /api/auth/me
+// @desc    Get current user
+// @access  Private
+router.get('/me', protect, getUserProfile);
+
 export default router; 
